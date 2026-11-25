@@ -81,6 +81,13 @@ def write_list(items):
     return sorted(writes, key=lambda item: item.arrival)
 
 
+def optional_capacity(value):
+    # 旧剧本不带容量字段：None 表示沿用不设入场上限的串行落盘口径。
+    if value is None:
+        return None
+    return integer(value, 1, 200, "剧本容量")
+
+
 def parse(payload):
     if not isinstance(payload, dict):
         raise ValueError("请输入同步写入剧本")
@@ -91,4 +98,5 @@ def parse(payload):
     promotion = name(payload.get("promotion"), "恢复来源")
     if promotion not in {replica.name for replica in replicas}:
         raise ValueError("恢复来源必须是已登记备机")
-    return replicas, writes, quorum, crash, promotion
+    capacity = optional_capacity(payload.get("capacity"))
+    return replicas, writes, quorum, crash, promotion, capacity

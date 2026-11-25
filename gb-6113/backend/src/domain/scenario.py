@@ -1,4 +1,10 @@
 from .admission import simulate
+from .capacity import (
+    STATUS_ADMITTED,
+    STATUS_MISSING,
+    STATUS_QUEUED,
+    simulate as simulate_capacity,
+)
 from .fixtures import FIXTURES
 from .inputs import parse
 
@@ -25,10 +31,23 @@ def validate(payload):
 
 
 def run(payload, parameter, db):
-    replicas, writes, quorum, crash, promoted = parse(payload)
-    rows, strict, planned, lost = simulate(writes, replicas, quorum, crash, promoted, parameter)
+    replicas, writes, quorum, crash, promoted, capacity = parse(payload)
+    if capacity is None:
+        # 旧剧本未填容量：沿用不设入场上限的串行落盘口径。
+        rows, strict, planned, lost = simulate(writes, replicas, quorum, crash, promoted, parameter)
+        return {
+            "summary": f"严格同步在故障前可答复 {strict} 笔，当前策略可答复 {planned} 笔；从{promoted}恢复时已答复但缺失 {lost} 笔。",
+            "metrics": {"严格答复": strict, "策略答复": planned, "已答复缺失": lost},
+            "rows": rows,
+        }
+
+    rows, metrics = simulate_capacity(writes, replicas, quorum, crash, promoted, parameter, capacity)
     return {
-        "summary": f"严格同步在故障前可答复 {strict} 笔，当前策略可答复 {planned} 笔；从{promoted}恢复时已答复但缺失 {lost} 笔。",
-        "metrics": {"严格答复": strict, "策略答复": planned, "已答复缺失": lost},
+        "summary": (
+            f"剧本容量 {capacity}；故障时仍在排队 {metrics[STATUS_QUEUED]} 笔，"
+            f"已入场未答复 {metrics[STATUS_ADMITTED]} 笔，"
+            f"已答复但在{promoted}找不到 {metrics[STATUS_MISSING]} 笔。"
+        ),
+        "metrics": dict(metrics),
         "rows": rows,
     }

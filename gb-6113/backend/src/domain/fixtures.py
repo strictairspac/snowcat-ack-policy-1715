@@ -27,4 +27,10 @@ FIXTURES = [
         "description": "故障时从山脚机房恢复，验证降级确认是否能由另一条副本链路保留。",
         "payload": {**BASE, "promotion": "山脚机房"},
     },
+    {
+        "code": "SN-1124-CAPACITY",
+        "title": "交班集中写入·容量入场排队",
+        "description": "剧本容量为 1：凭条满位后排队，必保凭条越过普通凭条先入场；标注故障时仍在排队、已入场未答复、已答复但目标缺失的凭条。",
+        "payload": {**BASE, "capacity": 1},
+    },
 ]

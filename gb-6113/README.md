@@ -17,6 +17,8 @@
 
 本机按到达顺序串行落盘。备机收到本机已落盘的记录后，也按该顺序消耗自己的持续服务时间，中断期间暂停。第 N 快备机落盘时点是严格同步答复点。可降级记录到达本机落盘后超时可本地答复。故障前已答复且目标未落盘才计入该目标的确认损失。模拟将落盘和答复时点等于故障时刻的事件计入已发生。
 
+剧本顶层可设 `capacity`（1–200 整数）。满位后新到凭条先排队，凭条收到答复才腾出空位；必保凭条可越过排队中的普通凭条，同类按到达顺序入场，已入场凭条按入场顺序串行落盘。同一时刻先处理答复、再分配空位。降级答复后副本照常补写。运行结果标明故障时哪些凭条仍在排队、已入场但未答复、已答复却在目标备机找不到。旧剧本不填容量（或填 `null`）时不设入场上限，沿用原来的串行口径与指标。`SN-1124-CAPACITY` 演示资料即容量为 1 的交班集中写入场景。
+
 这是应用策略和有序复制的时间演练。恢复来源由剧本给定，未启动真实备机，也不执行选主或引擎级同步模式切换。
 
 ## 启动
@@ -53,6 +55,12 @@ docker compose up -d --build --wait
 | 后台执行 | Redis 通知、数据库持久任务队列和行锁、Python worker |
 
 从 `backend/src/domain/scenario.py` 修改业务入口和演示口径，运行 `docker compose up -d --build --wait` 查看变更。数据库表结构在 `backend/src/models` 和 `backend/migrations`，输入模型在 `backend/src/schemas`。业务页和请求接口在 `frontend/src/pages`、`frontend/src/api`。资料、执行、复核三个工作流实体各有独立表和 API；场景输入及结果保留在所属资料和批次中。
+
+领域逻辑只依赖 Python 标准库，可在容器外直接跑单元测试（覆盖旧剧本兼容、容量排队、必保插队、同刻答复优先与故障时刻边界）：
+
+```sh
+cd backend && PYTHONPATH=. python3 -m unittest discover -s tests
+```
 
 角色枚举在 `backend/src/constants/roles.py`、`frontend/src/constants/roles.js`，用于服务端访问控制、账号初始化、前端导航与签署。批次状态在 `backend/src/constants/job_state.py`、`frontend/src/constants/states.js`，用于队列、状态 API、状态标记与轮询。登记、提交、完成和签署事件写入审计表。
 
